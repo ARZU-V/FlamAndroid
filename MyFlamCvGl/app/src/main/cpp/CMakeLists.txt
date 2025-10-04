@@ -15,7 +15,8 @@ find_package(OpenCV REQUIRED)
 # This will produce the "libmyflamcvgl.so" file that your Kotlin code needs.
 # Add all your C++ source files here.
 add_library(myflamcvgl SHARED
-        native-lib.cpp) # add other cpp files
+        native-lib.cpp
+        opencv_utils.cpp) # add other cpp files
 
 # Finds standard Android native libraries needed for graphics and logging.
 find_library(jnigraphics-lib jnigraphics)
