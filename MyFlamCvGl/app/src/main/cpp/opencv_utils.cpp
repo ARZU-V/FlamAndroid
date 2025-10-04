@@ -40,18 +40,6 @@ Mat cannyEdgeDetection(const Mat& inputFrame) {
     return edges_output;
 }
 
-Mat convertGrayscale(const Mat& inputFrame) {
-    Mat gray;
-    if (inputFrame.channels() == 3) {
-        cvtColor(inputFrame, gray, COLOR_BGR2GRAY);
-    } else if (inputFrame.channels() == 4) {
-        cvtColor(inputFrame, gray, COLOR_RGBA2GRAY);
-    } else {
-        gray = inputFrame.clone();
-    }
-    return gray;
-}
-
 // Convert Android Bitmap to OpenCV Mat
 Mat bitmapToMat(JNIEnv* env, jobject bitmap) {
     AndroidBitmapInfo info;
@@ -85,10 +73,44 @@ Mat bitmapToMat(JNIEnv* env, jobject bitmap) {
     return mat.clone();
 }
 
-//void myFlip(Mat src) {
-//    flip(src, src, 0);
-//}
-//
-//void myBlur(Mat src, float sigma) {
-//    GaussianBlur(src, src, Size(), sigma);
-//}
+bool processBitmapDirect(JNIEnv* env, jobject bitmapIn, jobject bitmapOut) {
+    AndroidBitmapInfo infoIn, infoOut;
+    void* pixelsIn = nullptr;
+    void* pixelsOut = nullptr;
+
+    // Get input and output bitmap info...
+    if (AndroidBitmap_getInfo(env, bitmapIn, &infoIn) < 0 || AndroidBitmap_getInfo(env, bitmapOut, &infoOut) < 0) {
+        LOGE("Failed to get bitmap info");
+        return false;
+    }
+
+    // Lock pixels to get access to the memory
+    if (AndroidBitmap_lockPixels(env, bitmapIn, &pixelsIn) < 0) {
+        LOGE("Failed to lock input bitmap pixels");
+        return false;
+    }
+    if (AndroidBitmap_lockPixels(env, bitmapOut, &pixelsOut) < 0) {
+        LOGE("Failed to lock output bitmap pixels");
+        AndroidBitmap_unlockPixels(env, bitmapIn); // At least unlock the first one on failure
+        return false;
+    }
+
+    try {
+        // Create Mats from the locked pixel buffers
+        cv::Mat inputMat(infoIn.height, infoIn.width, CV_8UC4, pixelsIn);
+        cv::Mat outputMat(infoOut.height, infoOut.width, CV_8UC4, pixelsOut);
+
+        // Process the frame (this part is fine)
+        cv::Mat processed = cannyEdgeDetection(inputMat);
+
+        // Convert the result back to RGBA for display
+        cv::cvtColor(processed, outputMat, cv::COLOR_GRAY2RGBA);
+
+    } catch (const std::exception& e) {
+        LOGE("Exception in processBitmapDirect_BAD: %s", e.what());
+        // Even in an exception, a good function would unlock here. This bad one doesn't.
+        return false;
+    }
+
+    return true;
+}
