@@ -1,8 +1,12 @@
-//Header file to create functions for future use
+#ifndef OPENCV_UTILS_H
+#define OPENCV_UTILS_H
 
-#pragma once
-#include "opencv2/opencv.hpp"
-
+#include <opencv2/opencv.hpp>
+#include <jni.h>
 using namespace cv;
-void myFlip(Mat src);
-void myBlur(Mat src,float sigma);
+Mat cannyEdgeDetection(const Mat& inputFrame);
+
+Mat bitmapToMat(JNIEnv* env, jobject bitmap);
+bool processBitmapDirect(JNIEnv* env, jobject bitmapIn, jobject bitmapOut);
+
+#endif // OPENCV_UTILS_H

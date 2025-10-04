@@ -4,6 +4,8 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include "opencv_utils.h"
+
+
 void bitmapToMat(JNIEnv *env, jobject bitmap, Mat& dst, jboolean needUnPremultiplyAlpha)
 {
     AndroidBitmapInfo  info;
@@ -103,21 +105,21 @@ Java_com_example_myflamcvgl_MainActivity_stringFromJNI(
     return env->NewStringUTF(hello.c_str());
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_example_myflamcvgl_MainActivity_myBlur(
-        JNIEnv* env,
-        jobject,jobject bitmapIn,jobject bitmapOut,jfloat sigma) {
-    Mat src;
-    bitmapToMat(env, bitmapIn, src, false);
-    myBlur(src,sigma);
-    matToBitmap(env, src, bitmapOut, false);
-}
-extern "C" JNIEXPORT void JNICALL
-Java_com_example_myflamcvgl_MainActivity_myFlip(
-        JNIEnv* env,
-        jobject,jobject bitmapIn,jobject bitmapOut) {
-    Mat src;
-    bitmapToMat(env, bitmapIn, src, false);
-    myFlip(src);
-    matToBitmap(env, src, bitmapOut, false);
-}
+//extern "C" JNIEXPORT void JNICALL
+//Java_com_example_myflamcvgl_MainActivity_myBlur(
+//        JNIEnv* env,
+//        jobject,jobject bitmapIn,jobject bitmapOut,jfloat sigma) {
+//    Mat src;
+//    bitmapToMat(env, bitmapIn, src, false);
+//    myBlur(src,sigma);
+//    matToBitmap(env, src, bitmapOut, false);
+//}
+//extern "C" JNIEXPORT void JNICALL
+//Java_com_example_myflamcvgl_MainActivity_myFlip(
+//        JNIEnv* env,
+//        jobject,jobject bitmapIn,jobject bitmapOut) {
+//    Mat src;
+//    bitmapToMat(env, bitmapIn, src, false);
+//    myFlip(src);
+//    matToBitmap(env, src, bitmapOut, false);
+//}
