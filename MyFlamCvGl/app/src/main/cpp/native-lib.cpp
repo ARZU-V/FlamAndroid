@@ -110,7 +110,7 @@ Java_com_example_myflamcvgl_MainActivity_myBlur(
     Mat src;
     bitmapToMat(env, bitmapIn, src, false);
     myBlur(src,sigma);
-    bitmapToMat(env,bitmapOut,src,false);
+    matToBitmap(env, src, bitmapOut, false);
 }
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_myflamcvgl_MainActivity_myFlip(
@@ -119,5 +119,5 @@ Java_com_example_myflamcvgl_MainActivity_myFlip(
     Mat src;
     bitmapToMat(env, bitmapIn, src, false);
     myFlip(src);
-    bitmapToMat(env,bitmapOut,src,false);
+    matToBitmap(env, src, bitmapOut, false);
 }
