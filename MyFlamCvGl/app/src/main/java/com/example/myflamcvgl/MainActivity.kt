@@ -1,69 +1,163 @@
-package com.example.myflamcvgl // Make sure this is your correct package name
-
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
+package com.example.myflamcvgl
+import android.Manifest
+import android.content.pm.PackageManager
+import android.graphics.SurfaceTexture
+import android.hardware.camera2.*
 import android.os.Bundle
-import android.view.View
-import android.widget.SeekBar
+import android.os.Handler
+import android.os.HandlerThread
+import android.util.Log
+import android.view.Surface
+import android.view.TextureView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.example.myflamcvgl.databinding.ActivityMainBinding // Import View Binding class
-import java.lang.Float.max
+import androidx.core.app.ActivityCompat
+import com.example.myflamcvgl.R
 
-class MainActivity : AppCompatActivity(), SeekBar.OnSeekBarChangeListener {
+class MainActivity : AppCompatActivity() {
 
-    // 1. Declare the binding variable
-    private lateinit var binding: ActivityMainBinding
+    private lateinit var textureView: TextureView
+    private var cameraDevice: CameraDevice? = null
+    private var cameraCaptureSession: CameraCaptureSession? = null
+    private lateinit var backgroundHandler: Handler
+    private lateinit var backgroundThread: HandlerThread
 
-    private var srcBitmap: Bitmap? = null
-    private var dstBitmap: Bitmap? = null
+    companion object {
+        private const val CAMERA_PERMISSION_CODE = 100
+        private const val TAG = "CameraApp"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 2. Initialize the binding object
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_main)
 
-        srcBitmap = BitmapFactory.decodeResource(this.resources, R.drawable.mountain)
-        dstBitmap = srcBitmap!!.copy(srcBitmap!!.config ?: Bitmap.Config.ARGB_8888, true)
+        textureView = findViewById(R.id.textureView)
+        textureView.surfaceTextureListener = surfaceTextureListener
 
-        // 3. Access views through the binding object
-        binding.imageView.setImageBitmap(dstBitmap)
-        binding.sldSigma.setOnSeekBarChangeListener(this)
+        // Check for camera permission
+        checkCameraPermission()
     }
 
-    private fun doBlur() {
-        // Access progress through the binding object
-        val sigma = max(0.1F, binding.sldSigma.progress / 10F)
-
-        // The native call remains the same
-        myBlur(srcBitmap!!, dstBitmap!!, sigma)
-
-        // We need to invalidate the imageView to force it to redraw the updated bitmap
-        binding.imageView.invalidate()
-    }
-
-    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-        doBlur()
-    }
-
-    fun btnFlip_click(view: View) {
-        this.myFlip(srcBitmap!!, srcBitmap!!)
-        this.doBlur()
-    }
-
-    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-
-    /**
-     * Native methods implemented by the 'myflamcvgl' library.
-     */
-    private external fun myBlur(bitmapIn: Bitmap, bitmapOut: Bitmap, sigma: Float)
-    private external fun myFlip(bitmapIn: Bitmap, bitmapOut: Bitmap)
-
-    companion object {
-        init {
-            // 4. Load the correct library name
-            System.loadLibrary("myflamcvgl")
+    // Getting Permission
+    private fun checkCameraPermission() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            // Ask Permission
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_PERMISSION_CODE)
+        } else {
+            // Background Thread working
+            startBackgroundThread()
         }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == CAMERA_PERMISSION_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Background Thread working
+                startBackgroundThread()
+            } else {
+                Toast.makeText(this, "Camera permission is required to use this app.", Toast.LENGTH_LONG).show()
+                finish() // Close the app if permission is denied.
+            }
+        }
+    }
+
+    // Preparing the View
+    private val surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+        override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+            // Open Camera after View Ready
+            openCamera()
+        }
+
+        override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
+        override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+        override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+    }
+
+    // Opening the Camera
+    private fun openCamera() {
+        val manager = getSystemService(CAMERA_SERVICE) as CameraManager
+        try {
+            val cameraId = manager.cameraIdList[0]
+            if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                return
+            }
+            manager.openCamera(cameraId, cameraStateCallback, backgroundHandler)
+        } catch (e: CameraAccessException) {
+            Log.e(TAG, "Failed to open camera.", e)
+        }
+    }
+
+    // Creating the Live Feed
+    private val cameraStateCallback = object : CameraDevice.StateCallback() {
+        override fun onOpened(camera: CameraDevice) {
+            cameraDevice = camera
+            createCameraPreviewSession()
+        }
+
+        override fun onDisconnected(camera: CameraDevice) {
+            camera.close()
+            cameraDevice = null
+        }
+
+        override fun onError(camera: CameraDevice, error: Int) {
+            onDisconnected(camera)
+        }
+    }
+
+    // Function to Connect the live camera feed to TextureView
+    private fun createCameraPreviewSession() {
+        try {
+            val texture = textureView.surfaceTexture!!
+            texture.setDefaultBufferSize(textureView.width, textureView.height)
+            val surface = Surface(texture)
+
+            val previewRequestBuilder = cameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+            previewRequestBuilder.addTarget(surface)
+
+            cameraDevice?.createCaptureSession(listOf(surface), object : CameraCaptureSession.StateCallback() {
+                override fun onConfigured(session: CameraCaptureSession) {
+                    cameraCaptureSession = session
+                    session.setRepeatingRequest(previewRequestBuilder.build(), null, backgroundHandler)
+                }
+                override fun onConfigureFailed(session: CameraCaptureSession) {}
+            }, null)
+        } catch (e: CameraAccessException) {
+            Log.e(TAG, "Failed to create camera session.", e)
+        }
+    }
+
+    // Managing the Background Thread i.e separate threads for working without any freeze or crash
+    private fun startBackgroundThread() {
+        backgroundThread = HandlerThread("CameraBackground").also { it.start() }
+        backgroundHandler = Handler(backgroundThread.looper)
+    }
+
+    private fun stopBackgroundThread() {
+        backgroundThread.quitSafely()
+        try {
+            backgroundThread.join()
+        } catch (e: InterruptedException) {
+            Log.e(TAG, e.message, e)
+        }
+    }
+
+    // App Lifecycle
+    // I need to properly open and close the camera when the app is paused or resumed.
+    override fun onResume() {
+        super.onResume()
+        startBackgroundThread()
+        if (textureView.isAvailable) {
+            openCamera()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        cameraCaptureSession?.close()
+        cameraCaptureSession = null
+        cameraDevice?.close()
+        cameraDevice = null
+        stopBackgroundThread()
     }
 }
