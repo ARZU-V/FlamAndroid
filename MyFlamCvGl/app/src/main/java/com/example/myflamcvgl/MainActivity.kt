@@ -12,6 +12,7 @@ import android.os.HandlerThread
 import android.util.Log
 import android.view.Surface
 import android.view.TextureView
+import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -20,9 +21,13 @@ import androidx.core.graphics.createBitmap
 class MainActivity : AppCompatActivity() {
 
     // UI and Rendering
-    private lateinit var textureView: TextureView
-    private lateinit var glSurfaceView: GLSurfaceView
-    private lateinit var bitmapRenderer: BitmapRenderer
+    private lateinit var textureView: TextureView // textureView variable
+    private lateinit var glSurfaceView: GLSurfaceView // glSurfaceView variable
+    private lateinit var bitmapRenderer: BitmapRenderer // bitmapRender
+    private lateinit var toggleButton: Button // Button variable
+
+    // State Management
+    private var isProcessingEnabled = true // State to control processing
 
     // A reusable bitmap for the processed output
     private var processedBitmap: Bitmap? = null
@@ -41,7 +46,6 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "CameraApp"
 
         init {
-            // Make sure your native library is named this in your CMakeLists.txt
             System.loadLibrary("native-lib")
         }
     }
@@ -50,40 +54,59 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Initialize all our views
         textureView = findViewById(R.id.textureView)
         glSurfaceView = findViewById(R.id.glSurfaceView)
+        toggleButton = findViewById(R.id.toggleButton) // ADDED: Find the button
 
-        // Setup OpenGL
-        glSurfaceView.setEGLContextClientVersion(2)
-        bitmapRenderer = BitmapRenderer()
-        glSurfaceView.setRenderer(bitmapRenderer)
-        glSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
+        setupOpenGL()
+        setupClickListener() // ADDED: Set up the button's click listener
 
         textureView.surfaceTextureListener = surfaceTextureListener
         checkCameraPermission()
     }
 
+    // ADDED: A new function to handle the button click
+    private fun setupClickListener() {
+        toggleButton.setOnClickListener {
+            // Flip the processing state
+            isProcessingEnabled = !isProcessingEnabled
+            // Update the button text to reflect the current state
+            toggleButton.text = if (isProcessingEnabled) "Show Original" else "Show Processed"
+        }
+    }
+
     // This is called for every new frame from the camera
     private fun processCurrentFrame() {
-        // Get the current camera frame from our invisible TextureView
         val bitmap = textureView.bitmap ?: return
 
-        // Create the output bitmap if it doesn't exist yet
-        if (processedBitmap == null || processedBitmap!!.width != bitmap.width || processedBitmap!!.height != bitmap.height) {
-            processedBitmap = createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+        // MODIFIED: Decide which bitmap to show based on our state variable
+        val finalBitmapToShow: Bitmap
+        if (isProcessingEnabled) {
+            // If processing is on, call the C++ function
+            if (processedBitmap == null || processedBitmap!!.width != bitmap.width || processedBitmap!!.height != bitmap.height) {
+                processedBitmap = createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+            }
+            processFrameToBitmap(bitmap, processedBitmap!!)
+            finalBitmapToShow = processedBitmap!!
+        } else {
+            // If processing is off, just show the original camera frame
+            finalBitmapToShow = bitmap
         }
 
-        // Call our C++ function to perform Canny edge detection
-        processFrameToBitmap(bitmap, processedBitmap!!)
-
-        // Give the final bitmap to our OpenGL renderer
-        bitmapRenderer.updateBitmap(processedBitmap!!)
-
-        // Tell the GLSurfaceView to redraw itself now that it has a new frame
+        // Give the final bitmap (either processed or original) to our OpenGL renderer
+        bitmapRenderer.updateBitmap(finalBitmapToShow)
         glSurfaceView.requestRender()
     }
 
-    // --- The rest of this is the standard Camera2 setup logic ---
+    private fun setupOpenGL() {
+        glSurfaceView.setEGLContextClientVersion(2)
+        bitmapRenderer = BitmapRenderer()
+        glSurfaceView.setRenderer(bitmapRenderer)
+        glSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
+    }
+
+    // --- The rest of the camera setup code remains the same ---
 
     private val surfaceTextureListener = object : TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
