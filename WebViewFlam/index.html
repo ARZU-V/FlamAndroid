@@ -1,13 +1,18 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>webviewflam</title>
+    <title>Android Native Stream</title>
+    <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div id="app">
+      <h2>Android OpenCV Stream</h2>
+      <div class="video-container">
+        <img id="video-feed" src="" alt="Live feed from device" />
+        <div id="status-overlay">Connecting...</div>
+      </div>
+    </div>
   </body>
 </html>
