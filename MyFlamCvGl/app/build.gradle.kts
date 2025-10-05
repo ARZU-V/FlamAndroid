@@ -58,4 +58,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    implementation("io.ktor:ktor-server-core-jvm:2.3.4")
+    implementation("io.ktor:ktor-server-cio-jvm:2.3.4")
+    implementation("io.ktor:ktor-server-websockets-jvm:2.3.4")
 }
