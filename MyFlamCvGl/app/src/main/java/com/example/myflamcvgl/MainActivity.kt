@@ -13,6 +13,7 @@ import android.util.Log
 import android.view.Surface
 import android.view.TextureView
 import android.widget.Button
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -26,8 +27,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bitmapRenderer: BitmapRenderer
     private lateinit var toggleButton: Button
 
+    private lateinit var fpsTextView: TextView
+
+
     // State Management
     private var isProcessingEnabled = true
+
+    private var frameCount = 0
+    private var lastFpsTime = 0L
 
     // A reusable bitmap for the processed output
     private var processedBitmap: Bitmap? = null
@@ -63,7 +70,8 @@ class MainActivity : AppCompatActivity() {
         textureView = findViewById(R.id.textureView)
         glSurfaceView = findViewById(R.id.glSurfaceView)
         toggleButton = findViewById(R.id.toggleButton)
-
+        // For Fps
+        fpsTextView = findViewById(R.id.fpsTextView)
         setupOpenGL()
         setupClickListener()
 
@@ -88,6 +96,8 @@ class MainActivity : AppCompatActivity() {
             }
             processFrameToBitmap(bitmap, processedBitmap!!)
             finalBitmapToShow = processedBitmap!!
+            //Used to update the FPS counter
+            updateFpsCounter()
         } else {
             finalBitmapToShow = bitmap
         }
@@ -173,6 +183,26 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+    /**
+     * Calculates and displays the Frames Per Second (FPS). This function works by
+     * incrementing a frame counter on every call. Approximately once per second,
+     * it takes the accumulated count as the current FPS value, updates the UI,
+     * and then resets the counter and timer for the next measurement interval.
+     */
+
+    private fun updateFpsCounter() {
+        frameCount++
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastFpsTime >= 1000) {
+            val fps = frameCount
+            runOnUiThread {
+                fpsTextView.text = "FPS: $fps"
+            }
+            frameCount = 0
+            lastFpsTime = currentTime
+        }
+    }
+
 
     private fun startBackgroundThread() {
         backgroundThread = HandlerThread("CameraBackground").also { it.start() }
