@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var toggleButton: Button
 
     private lateinit var fpsTextView: TextView
+    private lateinit var effectButton: Button
 
     private lateinit var statusTextView: TextView
 
@@ -36,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     // State Management
     private var isProcessingEnabled = true
 
+    private var effectCounter = 0
     private var frameCount = 0
     private var lastFpsTime = 0L
 
@@ -74,6 +76,7 @@ class MainActivity : AppCompatActivity() {
         textureView = findViewById(R.id.textureView)
         glSurfaceView = findViewById(R.id.glSurfaceView)
         toggleButton = findViewById(R.id.toggleButton)
+        effectButton = findViewById(R.id.effectButton)
         statusTextView = findViewById(R.id.statusTextView)
         // For Fps
         fpsTextView = findViewById(R.id.fpsTextView)
@@ -97,6 +100,26 @@ class MainActivity : AppCompatActivity() {
         toggleButton.setOnClickListener {
             isProcessingEnabled = !isProcessingEnabled
             toggleButton.text = if (isProcessingEnabled) "Show Original" else "Show Processed"
+        }
+        effectButton.setOnClickListener {
+            effectCounter = (effectCounter + 1) % 3 // Cycle through 0, 1, 2
+            when (effectCounter) {
+                BitmapRenderer.EFFECT_NONE -> {
+                    bitmapRenderer.currentEffect = BitmapRenderer.EFFECT_NONE
+                    effectButton.text = "Effect: None"
+                    Toast.makeText(this, "Effect Off", Toast.LENGTH_SHORT).show()
+                }
+                BitmapRenderer.EFFECT_GRAYSCALE -> {
+                    bitmapRenderer.currentEffect = BitmapRenderer.EFFECT_GRAYSCALE
+                    effectButton.text = "Effect: Grayscale"
+                    Toast.makeText(this, "Grayscale Effect", Toast.LENGTH_SHORT).show()
+                }
+                BitmapRenderer.EFFECT_INVERT -> {
+                    bitmapRenderer.currentEffect = BitmapRenderer.EFFECT_INVERT
+                    effectButton.text = "Effect: Invert"
+                    Toast.makeText(this, "Invert Effect", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 

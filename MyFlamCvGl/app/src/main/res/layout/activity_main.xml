@@ -6,14 +6,6 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <!-- This is the invisible TextureView that gets the raw camera data.
-         It's 1dp by 1dp and tucked into the top-left corner. -->
-
-    <!-- This is the main display area for the processed video.
-         It fills all available space above the controls at the bottom. -->
-
-    <!-- The rest of the views are anchored to the bottom of the screen. -->
-
     <TextureView
         android:id="@+id/textureView"
         android:layout_width="414dp"
