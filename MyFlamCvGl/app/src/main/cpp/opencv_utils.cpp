@@ -8,6 +8,11 @@
 #include "opencv_utils.h"
 
 
+#define LOG_TAG "Native-Lib"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+
 using namespace cv;
 Mat cannyEdgeDetection(const Mat& inputFrame) {
     Mat src_gray, detected_edges, result;
@@ -69,45 +74,61 @@ Mat bitmapToMat(JNIEnv* env, jobject bitmap) {
 
     return mat.clone();
 }
-
+// Convert OpenCV Mat to Android Bitmap
 bool processBitmapDirect(JNIEnv* env, jobject bitmapIn, jobject bitmapOut) {
     AndroidBitmapInfo infoIn, infoOut;
     void* pixelsIn = nullptr;
     void* pixelsOut = nullptr;
 
-    // Get input and output bitmap info...
-    if (AndroidBitmap_getInfo(env, bitmapIn, &infoIn) < 0 || AndroidBitmap_getInfo(env, bitmapOut, &infoOut) < 0) {
-        LOGE("Failed to get bitmap info");
+    // Get input bitmap info
+    if (AndroidBitmap_getInfo(env, bitmapIn, &infoIn) < 0) {
+        LOGE("Failed to get input bitmap info");
         return false;
     }
 
-    // Lock pixels to get access to the memory
+    // Get output bitmap info
+    if (AndroidBitmap_getInfo(env, bitmapOut, &infoOut) < 0) {
+        LOGE("Failed to get output bitmap info");
+        return false;
+    }
+
+    // Lock pixels
     if (AndroidBitmap_lockPixels(env, bitmapIn, &pixelsIn) < 0) {
         LOGE("Failed to lock input bitmap pixels");
         return false;
     }
+
     if (AndroidBitmap_lockPixels(env, bitmapOut, &pixelsOut) < 0) {
         LOGE("Failed to lock output bitmap pixels");
-        AndroidBitmap_unlockPixels(env, bitmapIn); // At least unlock the first one on failure
+        AndroidBitmap_unlockPixels(env, bitmapIn);
         return false;
     }
 
     try {
-        // Create Mats from the locked pixel buffers
+        // Create Mats from locked pixels
         cv::Mat inputMat(infoIn.height, infoIn.width, CV_8UC4, pixelsIn);
         cv::Mat outputMat(infoOut.height, infoOut.width, CV_8UC4, pixelsOut);
 
-        // Process the frame (this part is fine)
+        // Process the frame
         cv::Mat processed = cannyEdgeDetection(inputMat);
 
-        // Convert the result back to RGBA for display
-        cv::cvtColor(processed, outputMat, cv::COLOR_GRAY2RGBA);
+        // Convert single channel result back to RGBA for display
+        if (processed.channels() == 1) {
+            cv::cvtColor(processed, outputMat, cv::COLOR_GRAY2RGBA);
+        } else {
+            processed.copyTo(outputMat);
+        }
 
     } catch (const std::exception& e) {
-        LOGE("Exception in processBitmapDirect_BAD: %s", e.what());
-        // Even in an exception, a good function would unlock here. This bad one doesn't.
+        LOGE("Exception in processBitmapDirect: %s", e.what());
+        AndroidBitmap_unlockPixels(env, bitmapIn);
+        AndroidBitmap_unlockPixels(env, bitmapOut);
         return false;
     }
+
+    // Unlock pixels
+    AndroidBitmap_unlockPixels(env, bitmapIn);
+    AndroidBitmap_unlockPixels(env, bitmapOut);
 
     return true;
 }

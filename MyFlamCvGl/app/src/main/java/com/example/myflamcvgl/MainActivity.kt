@@ -24,7 +24,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var glSurfaceView: GLSurfaceView
     private lateinit var bitmapRenderer: BitmapRenderer
 
-    // A reusable bitmap for processing
+    // A reusable bitmap for the processed output
     private var processedBitmap: Bitmap? = null
 
     // Camera and Threading
@@ -33,14 +33,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var backgroundHandler: Handler
     private lateinit var backgroundThread: HandlerThread
 
-    // Native JNI function
-    private external fun CannyEdgeDetection(bitmapIn: Bitmap, bitmapOut: Bitmap)
+    // Native C++ function
+    external fun processFrameToBitmap(bitmapIn: Bitmap, bitmapOut: Bitmap)
 
     companion object {
         private const val CAMERA_PERMISSION_CODE = 100
         private const val TAG = "CameraApp"
+
         init {
-            System.loadLibrary("myflamcvgl") // Make sure your library name is correct
+            // Make sure your native library is named this in your CMakeLists.txt
+            System.loadLibrary("native-lib")
         }
     }
 
@@ -61,38 +63,36 @@ class MainActivity : AppCompatActivity() {
         checkCameraPermission()
     }
 
-    // This is called for every new frame from the camera.
-    private fun processFrameAndRender() {
-        // Get the current frame from the invisible TextureView
+    // This is called for every new frame from the camera
+    private fun processCurrentFrame() {
+        // Get the current camera frame from our invisible TextureView
         val bitmap = textureView.bitmap ?: return
 
-        // Initialize our output bitmap once
-        if (processedBitmap == null) {
+        // Create the output bitmap if it doesn't exist yet
+        if (processedBitmap == null || processedBitmap!!.width != bitmap.width || processedBitmap!!.height != bitmap.height) {
             processedBitmap = createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
         }
 
-        // Call our C++ function to apply Canny edge detection
-        applyCannyEdgeDetection(bitmap, processedBitmap!!)
+        // Call our C++ function to perform Canny edge detection
+        processFrameToBitmap(bitmap, processedBitmap!!)
 
-        // Update the renderer with the new processed bitmap
+        // Give the final bitmap to our OpenGL renderer
         bitmapRenderer.updateBitmap(processedBitmap!!)
 
-        // Tell the GLSurfaceView to redraw itself
+        // Tell the GLSurfaceView to redraw itself now that it has a new frame
         glSurfaceView.requestRender()
     }
 
-    // --- The rest of the camera setup code remains largely the same ---
+    // --- The rest of this is the standard Camera2 setup logic ---
 
     private val surfaceTextureListener = object : TextureView.SurfaceTextureListener {
         override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
             openCamera()
         }
-
         override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
         override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
         override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-            // This is the trigger for our processing pipeline
-            processFrameAndRender()
+            processCurrentFrame()
         }
     }
 
@@ -113,8 +113,7 @@ class MainActivity : AppCompatActivity() {
             createCameraPreviewSession()
         }
         override fun onDisconnected(camera: CameraDevice) {
-            camera.close()
-            cameraDevice = null
+            camera.close(); cameraDevice = null
         }
         override fun onError(camera: CameraDevice, error: Int) {
             onDisconnected(camera)
