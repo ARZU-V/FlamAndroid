@@ -29,6 +29,9 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var fpsTextView: TextView
 
+    private lateinit var statusTextView: TextView
+
+
 
     // State Management
     private var isProcessingEnabled = true
@@ -40,7 +43,7 @@ class MainActivity : AppCompatActivity() {
     private var processedBitmap: Bitmap? = null
 
     // Networking
-    private lateinit var webServer: WebServer // ADDED: WebServer variable
+    private lateinit var webServer: WebServer // WebServer variable
 
     // Camera and Threading
     private var cameraDevice: CameraDevice? = null
@@ -50,6 +53,7 @@ class MainActivity : AppCompatActivity() {
 
     // Native C++ function
     external fun processFrameToBitmap(bitmapIn: Bitmap, bitmapOut: Bitmap)
+    external fun testOpenCV(): Boolean
 
     companion object {
         private const val CAMERA_PERMISSION_CODE = 100
@@ -70,6 +74,7 @@ class MainActivity : AppCompatActivity() {
         textureView = findViewById(R.id.textureView)
         glSurfaceView = findViewById(R.id.glSurfaceView)
         toggleButton = findViewById(R.id.toggleButton)
+        statusTextView = findViewById(R.id.statusTextView)
         // For Fps
         fpsTextView = findViewById(R.id.fpsTextView)
         setupOpenGL()
@@ -77,6 +82,15 @@ class MainActivity : AppCompatActivity() {
 
         textureView.surfaceTextureListener = surfaceTextureListener
         checkCameraPermission()
+
+        if(testOpenCV()){
+            statusTextView.text = "OpenCV successful"
+            Log.i(TAG, "OpenCV test successful")
+        }
+        else{
+            statusTextView.text = "OpenCV failed"
+            Log.i(TAG, "OpenCV test failed")
+        }
     }
 
     private fun setupClickListener() {
