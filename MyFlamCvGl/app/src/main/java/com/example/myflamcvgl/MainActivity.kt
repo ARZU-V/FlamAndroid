@@ -17,20 +17,23 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.graphics.createBitmap
-
+import java.io.ByteArrayOutputStream
 class MainActivity : AppCompatActivity() {
 
     // UI and Rendering
-    private lateinit var textureView: TextureView // textureView variable
-    private lateinit var glSurfaceView: GLSurfaceView // glSurfaceView variable
-    private lateinit var bitmapRenderer: BitmapRenderer // bitmapRender
-    private lateinit var toggleButton: Button // Button variable
+    private lateinit var textureView: TextureView
+    private lateinit var glSurfaceView: GLSurfaceView
+    private lateinit var bitmapRenderer: BitmapRenderer
+    private lateinit var toggleButton: Button
 
     // State Management
-    private var isProcessingEnabled = true // State to control processing
+    private var isProcessingEnabled = true
 
     // A reusable bitmap for the processed output
     private var processedBitmap: Bitmap? = null
+
+    // Networking
+    private lateinit var webServer: WebServer // ADDED: WebServer variable
 
     // Camera and Threading
     private var cameraDevice: CameraDevice? = null
@@ -54,47 +57,47 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        webServer = WebServer() // ADDED: Initialize the WebServer
+
         // Initialize all our views
         textureView = findViewById(R.id.textureView)
         glSurfaceView = findViewById(R.id.glSurfaceView)
-        toggleButton = findViewById(R.id.toggleButton) // ADDED: Find the button
+        toggleButton = findViewById(R.id.toggleButton)
 
         setupOpenGL()
-        setupClickListener() // ADDED: Set up the button's click listener
+        setupClickListener()
 
         textureView.surfaceTextureListener = surfaceTextureListener
         checkCameraPermission()
     }
 
-    // ADDED: A new function to handle the button click
     private fun setupClickListener() {
         toggleButton.setOnClickListener {
-            // Flip the processing state
             isProcessingEnabled = !isProcessingEnabled
-            // Update the button text to reflect the current state
             toggleButton.text = if (isProcessingEnabled) "Show Original" else "Show Processed"
         }
     }
 
-    // This is called for every new frame from the camera
     private fun processCurrentFrame() {
         val bitmap = textureView.bitmap ?: return
 
-        // MODIFIED: Decide which bitmap to show based on our state variable
         val finalBitmapToShow: Bitmap
         if (isProcessingEnabled) {
-            // If processing is on, call the C++ function
             if (processedBitmap == null || processedBitmap!!.width != bitmap.width || processedBitmap!!.height != bitmap.height) {
                 processedBitmap = createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
             }
             processFrameToBitmap(bitmap, processedBitmap!!)
             finalBitmapToShow = processedBitmap!!
         } else {
-            // If processing is off, just show the original camera frame
             finalBitmapToShow = bitmap
         }
 
-        // Give the final bitmap (either processed or original) to our OpenGL renderer
+        // ADDED: Stream the final frame to the web server
+        val stream = ByteArrayOutputStream()
+        finalBitmapToShow.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+        webServer.sendFrame(stream.toByteArray())
+
+        // Give the final bitmap to our OpenGL renderer for local display
         bitmapRenderer.updateBitmap(finalBitmapToShow)
         glSurfaceView.requestRender()
     }
@@ -109,14 +112,10 @@ class MainActivity : AppCompatActivity() {
     // --- The rest of the camera setup code remains the same ---
 
     private val surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-        override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-            openCamera()
-        }
+        override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) { openCamera() }
         override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
         override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-        override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-            processCurrentFrame()
-        }
+        override fun onSurfaceTextureUpdated(surface: SurfaceTexture) { processCurrentFrame() }
     }
 
     private fun openCamera() {
@@ -131,16 +130,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val cameraStateCallback = object : CameraDevice.StateCallback() {
-        override fun onOpened(camera: CameraDevice) {
-            cameraDevice = camera
-            createCameraPreviewSession()
-        }
-        override fun onDisconnected(camera: CameraDevice) {
-            camera.close(); cameraDevice = null
-        }
-        override fun onError(camera: CameraDevice, error: Int) {
-            onDisconnected(camera)
-        }
+        override fun onOpened(camera: CameraDevice) { cameraDevice = camera; createCameraPreviewSession() }
+        override fun onDisconnected(camera: CameraDevice) { camera.close(); cameraDevice = null }
+        override fun onError(camera: CameraDevice, error: Int) { onDisconnected(camera) }
     }
 
     private fun createCameraPreviewSession() {
@@ -198,6 +190,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        webServer.start() // Start the server when the app resumes
         startBackgroundThread()
         glSurfaceView.onResume()
         if (textureView.isAvailable) {
@@ -207,6 +200,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        webServer.stop() //Stop the server when the app is paused
         glSurfaceView.onPause()
         cameraCaptureSession?.close()
         cameraDevice?.close()
