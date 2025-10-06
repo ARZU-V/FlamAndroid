@@ -79,3 +79,47 @@ The Android app provides on-device controls for managing the processing pipeline
 
 * **Toggle Processing**: Switches between the raw camera feed and the C++ OpenCV (edge detection) output.
 * **Toggle Effect**: Cycles through Opengl effects (None, Grayscale, Invert) applied to the final render.
+
+
+## Architecture Overview
+
+The system operates on a client-server model. The Android application functions as a powerful, multi-threaded server, while the web browser hosts a lightweight client.
+
+<img src="./Public/Flam.drawio.png" alt="High-Level Architecture Diagram" width="800">
+
+---
+
+## How It Works: Detailed Flow
+
+### 1. On the Android App (The Server)
+
+The Android app manages complex tasks across multiple threads to ensure a responsive user experience.
+
+* **Camera Capture**: The **Camera2 API** captures the live video feed. This stream initially goes to a `SurfaceTexture` linked to a `TextureView`.
+* **Frame Extraction**: From the `TextureView`, each frame is extracted as an Android `Bitmap`.
+* **Native Processing (C++ & JNI)**:
+    * The `Bitmap` is passed to the native C++ layer via **JNI (Java Native Interface)**. JNI acts as a bridge, allowing Kotlin/Java to execute high-performance C++ code.
+    * In C++, the `Bitmap`'s pixel data is directly accessed (zero-copy) to create an **OpenCV `cv::Mat`** object.
+    * OpenCV performs the image processing (e.g., edge detection) on the `cv::Mat`.
+    * The processed `cv::Mat` data is written back into an output `Bitmap` and returned to Kotlin.
+* **Dual Output Stream Fork**: The processed `Bitmap` is then sent down two parallel paths:
+    * **Local Display (OpenGL ES)**: The `Bitmap` is uploaded to the GPU as a texture. Our custom **OpenGL ES 2.0 renderer** (`BitmapRenderer`) displays this texture on a `GLSurfaceView`. This is also where **GLSL shaders** apply real-time visual effects (Grayscale, Invert) on the GPU.
+    * **Web Broadcasting (Ktor WebSocket)**: The `Bitmap` is compressed into a smaller **JPEG `ByteArray`**. This `ByteArray` is then passed to an embedded **Ktor WebSocket server** running within the Android app.
+
+### 2. Communication Between App and Web (WebSockets)
+
+The connection between the Android device and the web client happens over **WebSockets**, enabling fast, continuous communication.
+
+* **Connection Handshake**:
+    * The web browser sends an initial HTTP request to the Android app's IP address (e.g., `ws://<phone-ip>:8080/video`). This request includes special headers asking to "upgrade" to a WebSocket connection.
+    * The Ktor server on the Android app responds by agreeing to "switch protocols."
+    * A persistent, low-latency connection (like an open phone line) is established over TCP.
+* **Data Transfer**: Once connected, the Android server continuously pushes the JPEG `ByteArray` frames as binary WebSocket messages to the web client.
+
+### 3. On the Web Browser (The Client)
+
+The web client is a **React application** built with **TypeScript**, designed to efficiently receive and display the streamed video.
+
+* **Connection Management**: Using React's `useEffect` hook, the app establishes a WebSocket connection when the page loads and ensures it's properly closed when the page is unloaded.
+* **Frame Reception**: The `WebSocket` listener (`onmessage`) receives the incoming binary JPEG data as a `Blob` object.
+* **Rendering**: `URL.createObjectURL(blob)` generates a temporary local URL for the received `Blob`. This URL is then set as the `src` attribute of an `<img>` tag in the React component. Since this happens for every incoming frame, it creates the illusion of a smooth, live video stream in the browser.
