@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.graphics.createBitmap
 import java.io.ByteArrayOutputStream
+
 class MainActivity : AppCompatActivity() {
 
     // UI and Rendering
@@ -66,11 +67,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * This is where everything starts when the app opens.
+     * We set up all the views, buttons, and check for camera permission.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        webServer = WebServer() // ADDED: Initialize the WebServer
+        webServer = WebServer() // Initialize the WebServer
 
         // Initialize all our views
         textureView = findViewById(R.id.textureView)
@@ -96,6 +101,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Just sets up the click handlers for our buttons.
     private fun setupClickListener() {
         toggleButton.setOnClickListener {
             isProcessingEnabled = !isProcessingEnabled
@@ -123,6 +129,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * This is the main loop, called for every single camera frame.
+     * It grabs the frame, sends it to C++ for processing, and then
+     * shows it on the screen and sends it to the web server.
+     */
     private fun processCurrentFrame() {
         val bitmap = textureView.bitmap ?: return
 
@@ -139,7 +150,7 @@ class MainActivity : AppCompatActivity() {
             finalBitmapToShow = bitmap
         }
 
-        // ADDED: Stream the final frame to the web server
+        // Stream the final frame to the web server
         val stream = ByteArrayOutputStream()
         finalBitmapToShow.compress(Bitmap.CompressFormat.JPEG, 80, stream)
         webServer.sendFrame(stream.toByteArray())
@@ -149,6 +160,7 @@ class MainActivity : AppCompatActivity() {
         glSurfaceView.requestRender()
     }
 
+    // Gets the OpenGL view ready to draw stuff.
     private fun setupOpenGL() {
         glSurfaceView.setEGLContextClientVersion(2)
         bitmapRenderer = BitmapRenderer()
@@ -220,13 +232,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    /**
-     * Calculates and displays the Frames Per Second (FPS). This function works by
-     * incrementing a frame counter on every call. Approximately once per second,
-     * it takes the accumulated count as the current FPS value, updates the UI,
-     * and then resets the counter and timer for the next measurement interval.
-     */
 
+    // Just a simple function to count and show the FPS.
     private fun updateFpsCounter() {
         frameCount++
         val currentTime = System.currentTimeMillis()
@@ -255,6 +262,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Handles what happens when the app comes back to the screen.
+     * We need to restart the server, threads, and camera here.
+     */
     override fun onResume() {
         super.onResume()
         webServer.start() // Start the server when the app resumes
@@ -265,6 +276,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Handles what happens when the app goes into the background.
+     * It's important to stop everything to save battery.
+     */
     override fun onPause() {
         super.onPause()
         webServer.stop() //Stop the server when the app is paused
