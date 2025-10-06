@@ -101,8 +101,10 @@ function App() {
         )}
       </div>
       <div className="stats">
-        FPS: {fps} | Resolution: {resolution}
-      </div>
+  <span>FPS: {fps}</span> 
+  <span>Resolution: {resolution}</span>
+</div>
+
     </div>
   );
 }

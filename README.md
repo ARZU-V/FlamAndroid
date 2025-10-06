@@ -55,7 +55,7 @@ The core feature is the real-time stream from the Android device to the web brow
 
 
 **Canny Edge Detection**:
-<img src="./Public/Proof8.gif" alt="Live Stream Demo" width="450" height="250">
+<img src="./Public/optimized.gif" alt="Live Stream Demo" width="550" height="350">
 
 ### 2. Android App UI & Controls
 The Android app provides on-device controls for managing the processing pipeline and visual effects.
