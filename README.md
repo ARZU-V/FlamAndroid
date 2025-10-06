@@ -47,3 +47,35 @@ A full-stack Android project demonstrating real-time video processing with OpenC
 ### Hardware & Network
 * You need a physical Android device with **USB Debugging enabled**.
 * Connect both your computer and Android device to the **same Wi-Fi network** to make use of the WebSocket (IpAdress + Port).
+
+## Application in Action
+
+### 1. Live Web Stream
+The core feature is the real-time stream from the Android device to the web browser. The following GIF demonstrates the processed video feed being streamed live to the web viewer over the local network.
+
+
+**Canny Edge Detection**:
+<img src="./Public/Proof8.gif" alt="Live Stream Demo" width="450" height="250">
+
+### 2. Android App UI & Controls
+The Android app provides on-device controls for managing the processing pipeline and visual effects.
+
+
+**Canny Edge Detection**:
+<img src="./Public/Proof5.gif" alt="Live Stream Demo" width="250" height="450">
+
+**GrayScale**:
+<img src="./Public/Proof7.gif"  width="250" height="450">
+
+**Invert**:
+<img src="./Public/proof6.gif"  width="250" height="450">
+
+**Canny Edge Invert**:
+<img src="./Public/Proof.gif"  width="250" height="450">
+
+
+
+
+
+* **Toggle Processing**: Switches between the raw camera feed and the C++ OpenCV (edge detection) output.
+* **Toggle Effect**: Cycles through Opengl effects (None, Grayscale, Invert) applied to the final render.
