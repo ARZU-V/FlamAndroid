@@ -51,7 +51,7 @@ A full-stack Android project demonstrating real-time video processing with OpenC
 ## Application in Action
 
 ### 1. Live Web Stream
-The core feature is the real-time stream from the Android device to the web browser. The following GIF demonstrates the processed video feed being streamed live to the web viewer over the local network.
+The core feature is the real-time stream from the Android device to the web browser. The following GIF demonstrates the processed video feed being streamed live to the web viewer over the local network with Data of **Fps and Resolution**.
 
 
 **Canny Edge Detection**:
